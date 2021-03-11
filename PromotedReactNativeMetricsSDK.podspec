@@ -23,5 +23,5 @@ Pod::Spec.new do |s|
   s.swift_version = '5.2'
 
   s.dependency 'PromotedAIMetricsSDK'
-	s.dependency 'React-Core'
+  s.dependency 'React-Core'
 end
