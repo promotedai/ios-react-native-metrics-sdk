@@ -1,6 +1,6 @@
 #import "React/RCTBridgeModule.h"
 
-@interface RCT_EXTERN_REMAP_MODULE(PromotedLoggerModule, PromotedLoggerModule, NSObject)
+@interface RCT_EXTERN_MODULE(PromotedLoggerModule, NSObject)
 
 RCT_EXTERN_METHOD(startSessionAndLogUserWithID:(NSString *)userID)
 
