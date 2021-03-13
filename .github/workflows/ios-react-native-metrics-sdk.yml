@@ -19,6 +19,11 @@ jobs:
     - name: NPM install
       run: npm install
       working-directory: BuildProject
+    - name: Echo
+      run: echo ${IOS_REPO_ACCESS_TOKEN}
+      working-directory: BuildProject/ios
+      env: 
+        IOS_REPO_ACCESS_TOKEN: ${{ secrets.IOS_REPO_ACCESS_TOKEN }}
     - name: Cocoapod install
       run: pod install
       working-directory: BuildProject/ios
