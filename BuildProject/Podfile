@@ -1,0 +1,9 @@
+platform :ios, '11.0'
+
+source 'https://github.com/promotedai/cocoapods.git'
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'BuildProject' do
+  pod 'PromotedAIMetricsSDK', :head
+  pod 'PromotedReactNativeMetricsSDK', :path => '../'
+end
