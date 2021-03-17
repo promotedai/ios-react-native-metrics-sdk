@@ -52,6 +52,14 @@ public class PromotedLoggerModule: NSObject {
                    contentIDKeys: contentIDKeys,
                    insertionIDKeys: insertionIDKeys)
   }
+  
+  private func sectionedContentFor(_ content: [[ReactNativeDictionary]])
+      -> [[Content]] {
+    let convertedContent = content.map { section -> [Content] in
+      section.map { dict -> Content in contentFor(dict) }
+    }
+    return convertedContent
+  }
 }
 
 public extension PromotedLoggerModule {
@@ -123,9 +131,7 @@ public extension PromotedLoggerModule {
   @objc(collectionViewDidLoad:collectionViewName:)
   func collectionViewDidLoad(sectionedContent: [[ReactNativeDictionary]],
                              collectionViewName: String) {
-    let convertedContent = sectionedContent.map { section -> [Content] in
-      section.map { dict -> Content in contentFor(dict) }
-    }
+    let convertedContent = sectionedContentFor(sectionedContent)
     let logger = service.impressionLogger(sectionedContent: convertedContent)
     nameToImpressionLogger[collectionViewName] = logger
   }
@@ -145,4 +151,30 @@ public extension PromotedLoggerModule {
 
 // MARK: - ScrollTracker
 public extension PromotedLoggerModule {
+  @objc(scrollViewDidLoad:scrollViewName:)
+  func scrollViewDidLoad(sectionedContent: [[ReactNativeDictionary]],
+                         scrollViewName: String) {
+    let convertedContent = sectionedContentFor(sectionedContent)
+    let tracker = service.scrollTracker(sectionedContent: convertedContent)
+    nameToScrollTracker[scrollViewName] = tracker
+  }
+  
+  @objc(scrollViewDidUpdateViewport:scrollViewName:)
+  func scrollViewDidUpdate(viewport: [Int], scrollViewName: String) {
+    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
+    let viewportRect = CGRect(x: viewport[0], y: viewport[1],
+                              width: viewport[2], height: viewport[3])
+    tracker.viewport = viewportRect
+  }
+  
+  @objc(scrollViewContentDidUpdateFrame:content:scrollViewName:)
+  func scrollViewContentDidUpdate(frame: [Int],
+                                  content contentDict: ReactNativeDictionary,
+                                  scrollViewName: String) {
+    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
+    let frameRect = CGRect(x: frame[0], y: frame[1],
+                           width: frame[2], height: frame[3])
+    let content = contentFor(contentDict)
+    tracker.setFrame(frameRect, forContent: content)
+  }
 }
