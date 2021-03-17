@@ -44,4 +44,41 @@ RCT_EXTERN_METHOD(collectionViewDidUnmount:(NSString *)name)
 
 #pragma mark - ScrollTracker
 
+/// Call this method when a scroll view you wish to track has loaded its
+/// contents.
+///
+/// @param frame Relative to screen: `[x, y, width, height]`.
+/// @param sectionedContent (NSArray<NSArray<NSDictionary<String, id>>>)
+///        Array of sections for the data: [[item0, item1], [item2, ...]]
+/// @param scrollViewName Identifier for scroll view to track.
+RCT_EXTERN_METHOD(scrollViewDidLoad:(NSArray<NSNumber *> *)frame
+                  sectionedContent:(NSArray *)sectionedContent
+                  scrollViewName:(NSString *)scrollViewName)
+
+/// Call this method when the scroll view scrolls.
+///
+/// @param frame Relative to contents: `[x, y, width, height]`.
+///        For a `NativeScrollEvent`, this corresponds to
+///        `[contentOffset.x, contentOffset.y, layoutMeasurement.width,
+///        layoutMeasurement.height]`.
+/// @param scrollViewName Identifier for scroll view to track.
+RCT_EXTERN_METHOD(scrollViewDidUpdateViewport:(NSArray<NSNumber *> *)viewport
+                  scrollViewName:(NSString *)scrollViewName)
+
+/// Call this method to indicate that a content view within the scroll view
+/// has updated its position. At minimum should be invoked with `onLayout` of
+/// the content view.
+///
+/// @param frame Relative to screen: `[x, y, width, height]`.
+/// @param content (`NSDictionary<String, id>`) Represents a piece of content
+///        (item or partner) to log.
+/// @param scrollViewName Identifier for scroll view to track.
+RCT_EXTERN_METHOD(scrollViewContentDidUpdateFrame:(NSArray<NSNumber *> *)frame
+                  content:(nullable NSDictionary<NSString *, id> *)content
+                  scrollViewName:(NSString *)scrollViewName)
+
+///
+/// @param scrollViewName Identifier for scroll view to track.
+RCT_EXTERN_METHOD(scrollViewDidUnmount:(NSString *)scrollViewName)
+
 @end

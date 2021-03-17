@@ -10,7 +10,15 @@ import PromotedAIMetricsSDK
 @objc(PromotedLoggerModule)
 public class PromotedLoggerModule: NSObject {
   
+  public static let defaultNameKeys = ["name"]
+  public static let defaultContentIDKeys = ["content_id", "contentId", "_id"]
+  public static let defaultInsertionIDKeys = ["insertion_id", "insertionId"]
+  
   public typealias ReactNativeDictionary = [String: Any]
+  
+  /// List of keys for content name as used in
+  /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
+  private let nameKeys: [String]
   
   /// List of keys for content IDs as used in
   /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
@@ -30,11 +38,13 @@ public class PromotedLoggerModule: NSObject {
   private var nameToScrollTracker: [String: ScrollTracker]
   
   public init(metricsLoggerService: MetricsLoggerService,
-              contentIDKeys: [String],
-              insertionIDKeys: [String]) {
+              nameKeys: [String]? = defaultNameKeys,
+              contentIDKeys: [String]? = defaultContentIDKeys,
+              insertionIDKeys: [String]? = defaultInsertionIDKeys) {
     self.service = metricsLoggerService
-    self.contentIDKeys = contentIDKeys
-    self.insertionIDKeys = insertionIDKeys
+    self.nameKeys = nameKeys!
+    self.contentIDKeys = contentIDKeys!
+    self.insertionIDKeys = insertionIDKeys!
     self.nameToImpressionLogger = [:]
     self.nameToScrollTracker = [:]
   }
@@ -49,6 +59,7 @@ public class PromotedLoggerModule: NSObject {
   
   private func contentFor(_ dictionary: ReactNativeDictionary?) -> Content {
     return Content(properties: dictionary,
+                   nameKeys: nameKeys,
                    contentIDKeys: contentIDKeys,
                    insertionIDKeys: insertionIDKeys)
   }
@@ -95,6 +106,7 @@ public extension PromotedLoggerModule {
   @objc(logClickToPurchaseItem:)
   func logClickToPurchase(item: ReactNativeDictionary?) {
     let item = Item(properties: item,
+                    nameKeys: nameKeys,
                     contentIDKeys: contentIDKeys,
                     insertionIDKeys: insertionIDKeys)
     self.metricsLogger.logClickToPurchase(item: item)
@@ -145,4 +157,69 @@ public extension PromotedLoggerModule {
 
 // MARK: - ScrollTracker
 public extension PromotedLoggerModule {
+  @objc(scrollViewDidLoad:sectionedContent:scrollViewName:)
+  func scrollViewDidLoad(frame: [NSNumber],
+                         sectionedContent: [[ReactNativeDictionary]],
+                         scrollViewName: String) {
+    if let existingTracker = nameToScrollTracker[scrollViewName] {
+      let existingContent = existingTracker.sectionedContent
+      if isReactNativeContent(sectionedContent, equalTo: existingContent) {
+        print("***** re-using tracker named \(scrollViewName)")
+        return
+      }
+    }
+    let frameRect = CGRect(array: frame)
+    let convertedContent = sectionedContentFor(sectionedContent)
+    let tracker = service.scrollTracker(sectionedContent: convertedContent)
+    nameToScrollTracker[scrollViewName] = tracker
+    print("***** created tracker named \(scrollViewName) frame \(frameRect) for \(convertedContent)")
+  }
+  
+  private func isReactNativeContent(_ reactNativeContent: [[ReactNativeDictionary]],
+                                    equalTo sectionedContent: [[Content]]) -> Bool {
+    if reactNativeContent.count != sectionedContent.count { return false }
+    for (i, reactNativeSection) in reactNativeContent.enumerated() {
+      let section = sectionedContent[i]
+      if reactNativeSection.count != section.count { return false }
+      for (j, reactNativeItem) in reactNativeSection.enumerated() {
+        let item = section[j]
+        let reactNativeID = reactNativeItem.firstValueFromKeysInArray(contentIDKeys)
+        if reactNativeID != item.contentID {
+          return false
+        }
+      }
+    }
+    return true
+  }
+  
+  @objc(scrollViewDidUpdateViewport:scrollViewName:)
+  func scrollViewDidUpdate(viewport: [NSNumber], scrollViewName: String) {
+    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
+    let viewportRect = CGRect(array: viewport)
+    tracker.viewport = viewportRect
+    print("***** tracker named \(scrollViewName) scrolled to \(viewportRect)")
+  }
+  
+  @objc(scrollViewContentDidUpdateFrame:content:scrollViewName:)
+  func scrollViewContentDidUpdate(frame: [NSNumber],
+                                  content contentDict: ReactNativeDictionary,
+                                  scrollViewName: String) {
+    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
+    let frameRect = CGRect(array: frame)
+    let content = contentFor(contentDict)
+    tracker.setFrame(frameRect, forContent: content)
+    print("***** tracker named \(scrollViewName) item \(content.name) frame \(frameRect)")
+  }
+  
+  @objc(scrollViewDidUnmount:)
+  func scrollViewDidUnmount(name: String) {
+    nameToScrollTracker.removeValue(forKey: name)
+  }
+}
+
+extension CGRect {
+  init(array: [NSNumber]) {
+    self.init(x: array[0].doubleValue, y: array[1].doubleValue,
+              width: array[2].doubleValue, height: array[3].doubleValue)
+  }
 }
