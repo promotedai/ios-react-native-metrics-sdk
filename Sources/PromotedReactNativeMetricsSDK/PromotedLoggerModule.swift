@@ -1,6 +1,7 @@
 import Foundation
 import PromotedAIMetricsSDK
 
+// MARK: -
 /**
  `MetricsLogger` methods packaged as a module. Has all the same methods
  as `MetricsLogger`, but delegates those methods to an instance of the
@@ -25,12 +26,17 @@ public class PromotedLoggerModule: NSObject {
     return service.metricsLogger
   }
   
+  private var nameToImpressionLogger: [String: ImpressionLogger]
+  private var nameToScrollTracker: [String: ScrollTracker]
+  
   public init(metricsLoggerService: MetricsLoggerService,
               contentIDKeys: [String],
               insertionIDKeys: [String]) {
     self.service = metricsLoggerService
     self.contentIDKeys = contentIDKeys
     self.insertionIDKeys = insertionIDKeys
+    self.nameToImpressionLogger = [:]
+    self.nameToScrollTracker = [:]
   }
 
   @objc public var methodQueue: DispatchQueue {
@@ -46,80 +52,97 @@ public class PromotedLoggerModule: NSObject {
                    contentIDKeys: contentIDKeys,
                    insertionIDKeys: insertionIDKeys)
   }
+}
 
+public extension PromotedLoggerModule {
   // MARK: - Starting new sessions
   @objc(startSessionAndLogUserWithID:)
-  public func startSessionAndLogUser(userID: String) {
+  func startSessionAndLogUser(userID: String) {
     self.metricsLogger.startSessionAndLogUser(userID: userID)
   }
   
-  @objc public func startSessionAndLogSignedOutUser() {
+  @objc func startSessionAndLogSignedOutUser() {
     self.metricsLogger.startSessionAndLogSignedOutUser()
   }
   
   // MARK: - Impressions
-  @objc public func logImpression(content: ReactNativeDictionary?) {
+  @objc func logImpression(content: ReactNativeDictionary?) {
     self.metricsLogger.logImpression(content: contentFor(content))
   }
   
   // MARK: - Clicks
   @objc(logClickToLikeContent:didLike:)
-  public func logClickToLike(content: ReactNativeDictionary?, didLike: Bool) {
+  func logClickToLike(content: ReactNativeDictionary?, didLike: Bool) {
     self.metricsLogger.logClickToLike(content: contentFor(content), didLike: didLike)
   }
   
   @objc(logClickToShowScreenName:)
-  public func logClickToShow(screenName: String) {
+  func logClickToShow(screenName: String) {
     self.metricsLogger.logClickToShow(screenName: screenName)
   }
   
   @objc(logClickToShowScreenName:forContent:)
-  public func logClickToShow(screenName: String,
+  func logClickToShow(screenName: String,
                              forContent content: ReactNativeDictionary?) {
     self.metricsLogger.logClickToShow(screenName: screenName,
                                       forContent: contentFor(content))
   }
   
-  @objc public func logClickToSignUp(userID: String) {
+  @objc func logClickToSignUp(userID: String) {
     self.metricsLogger.logClickToSignUp(userID: userID)
   }
     
   @objc(logClickToPurchaseItem:)
-  public func logClickToPurchase(item: ReactNativeDictionary?) {
+  func logClickToPurchase(item: ReactNativeDictionary?) {
     let item = Item(properties: item,
                     contentIDKeys: contentIDKeys,
                     insertionIDKeys: insertionIDKeys)
     self.metricsLogger.logClickToPurchase(item: item)
   }
   
-  @objc public func logClick(actionName: String) {
+  @objc func logClick(actionName: String) {
     self.metricsLogger.logClick(actionName: actionName)
   }
   
-  @objc public func logClick(actionName: String, content: ReactNativeDictionary?) {
+  @objc func logClick(actionName: String, content: ReactNativeDictionary?) {
     self.metricsLogger.logClick(actionName: actionName, content: contentFor(content))
   }
   
   // MARK: - Views
-  @objc public func logView(screenName: String) {
+  @objc func logView(screenName: String) {
     self.metricsLogger.logView(screenName: screenName)
   }
   
-  @objc public func logView(screenName: String, useCase: UseCase) {
+  @objc func logView(screenName: String, useCase: UseCase) {
     self.metricsLogger.logView(screenName: screenName, useCase: useCase)
   }
-  
-  // MARK: - ImpressionLogger
-  @objc public func collectionViewDidLoad(items: [ReactNativeDictionary],
-                                          collectionViewName: String) {
-    print("***** \(collectionViewName): \(items)")
+}
+
+// MARK: - ImpressionLogger
+public extension PromotedLoggerModule {
+  @objc(collectionViewDidLoad:collectionViewName:)
+  func collectionViewDidLoad(sectionedContent: [[ReactNativeDictionary]],
+                             collectionViewName: String) {
+    let convertedContent = sectionedContent.map { section -> [Content] in
+      section.map { dict -> Content in contentFor(dict) }
+    }
+    let logger = service.impressionLogger(sectionedContent: convertedContent)
+    nameToImpressionLogger[collectionViewName] = logger
   }
 
-  @objc public func collectionViewDidChange(visibleRows: [Int],
-                                            collectionViewName: String) {
-    print("***** \(collectionViewName): \(visibleRows)")
+  @objc(collectionViewDidChange:collectionViewName:)
+  func collectionViewDidChange(visibleIndexes: [[Int]], collectionViewName: String) {
+    guard let logger = nameToImpressionLogger[collectionViewName] else { return }
+    let paths = visibleIndexes.map { i -> IndexPath in IndexPath(indexes: i) }
+    logger.collectionViewDidChangeVisibleContent(atIndexes: paths)
   }
   
-  // MARK: - ScrollTracker
-  
+  @objc(collectionViewDidUnmount:)
+  func collectionViewDidUnmount(name: String) {
+    nameToImpressionLogger.removeValue(forKey: name)
+  }
+}
+
+// MARK: - ScrollTracker
+public extension PromotedLoggerModule {
 }
