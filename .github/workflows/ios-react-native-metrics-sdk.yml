@@ -32,8 +32,6 @@ jobs:
     - name: Cocoapod install
       run: pod install
       working-directory: BuildProject/ios
-      env: 
-        IOS_REPO_ACCESS_TOKEN: ${{ secrets.IOS_REPO_ACCESS_TOKEN }}
     - name: Build
       run: xcodebuild -workspace BuildProject.xcworkspace -configuration Debug -scheme BuildProject -destination 'platform=iOS Simulator,name=iPhone 11'
       working-directory: BuildProject/ios
