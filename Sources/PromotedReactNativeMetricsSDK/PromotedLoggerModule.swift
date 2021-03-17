@@ -7,14 +7,16 @@ import PromotedAIMetricsSDK
  logger.
  */
 @objc(PromotedLoggerModule)
-public class PromotedLoggerModule: NSObject, InternalLogger {
+public class PromotedLoggerModule: NSObject {
   
-  /// List of keys for item IDs as used in
-  /// `Item(properties:itemIDKeys:insertionIDKeys:)`.
-  private let itemIDKeys: [String]
+  public typealias ReactNativeDictionary = [String: Any]
+  
+  /// List of keys for content IDs as used in
+  /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
+  private let contentIDKeys: [String]
 
   /// List of keys for insertion IDs as used in
-  /// `Item(properties:itemIDKeys:insertionIDKeys:)`.
+  /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
   private let insertionIDKeys: [String]
   
   private let service: MetricsLoggerService
@@ -24,10 +26,10 @@ public class PromotedLoggerModule: NSObject, InternalLogger {
   }
   
   public init(metricsLoggerService: MetricsLoggerService,
-              itemIDKeys: [String],
+              contentIDKeys: [String],
               insertionIDKeys: [String]) {
     self.service = metricsLoggerService
-    self.itemIDKeys = itemIDKeys
+    self.contentIDKeys = contentIDKeys
     self.insertionIDKeys = insertionIDKeys
   }
 
@@ -37,6 +39,12 @@ public class PromotedLoggerModule: NSObject, InternalLogger {
   
   @objc public static func requiresMainQueueSetup() -> Bool {
     return true
+  }
+  
+  private func contentFor(_ dictionary: ReactNativeDictionary?) -> Content {
+    return Content(properties: dictionary,
+                   contentIDKeys: contentIDKeys,
+                   insertionIDKeys: insertionIDKeys)
   }
 
   // MARK: - Starting new sessions
@@ -50,116 +58,68 @@ public class PromotedLoggerModule: NSObject, InternalLogger {
   }
   
   // MARK: - Impressions
-  /// Logs impression of item with given ID. **React Native-only.**
-  // TODO(yu-hong): Track more data for conversions.
-  @objc func logImpression(itemID: String) {
-    logImpression(item: Item(itemID: itemID))
-  }
-  
-  @objc public func logImpression(item: Item) {
-    self.metricsLogger.logImpression(item: item)
+  @objc public func logImpression(content: ReactNativeDictionary?) {
+    self.metricsLogger.logImpression(content: contentFor(content))
   }
   
   // MARK: - Clicks
-  /// Logs like for item with given ID. **React Native-only.**
-  // TODO(yu-hong): Track more data for conversions.
-  @objc(logClickToLikeItemID:didLike:)
-  public func logClickToLike(itemID: String, didLike: Bool) {
-    logClickToLike(item: Item(itemID: itemID), didLike: didLike)
+  @objc(logClickToLikeContent:didLike:)
+  public func logClickToLike(content: ReactNativeDictionary?, didLike: Bool) {
+    self.metricsLogger.logClickToLike(content: contentFor(content), didLike: didLike)
   }
   
-  public func logClickToLike(item: Item, didLike: Bool) {
-    self.metricsLogger.logClickToLike(item: item, didLike: didLike)
-  }
-  
-  public func logClickToShow(viewController: ViewControllerType) {
-    self.metricsLogger.logClickToShow(viewController: viewController)
-  }
-  
-  /// Logs click to show a view controller for item with given ID.
-  /// **React Native-only.**
-  // TODO(yu-hong): Track more data for conversions.
-  @objc(logClickToShowViewController:forItemID:)
-  public func logClickToShow(viewController: ViewControllerType,
-                             forItemID itemID: String) {
-    logClickToShow(viewController: viewController,
-                   forItem: Item(itemID: itemID))
-  }
-  
-  public func logClickToShow(viewController: ViewControllerType,
-                             forItem item: Item) {
-    self.metricsLogger.logClickToShow(viewController: viewController,
-                                      forItem: item)
-  }
-  
+  @objc(logClickToShowScreenName:)
   public func logClickToShow(screenName: String) {
     self.metricsLogger.logClickToShow(screenName: screenName)
   }
   
-  /// Logs click to show a screen for item with given ID.
-  /// **React Native-only.**
-  // TODO(yu-hong): Track more data for conversions.
-  @objc(logClickToShowScreenName:forItemID:)
-  public func logClickToShow(screenName: String, forItemID itemID: String) {
-    logClickToShow(screenName: screenName, forItem: Item(itemID: itemID))
+  @objc(logClickToShowScreenName:forContent:)
+  public func logClickToShow(screenName: String,
+                             forContent content: ReactNativeDictionary?) {
+    self.metricsLogger.logClickToShow(screenName: screenName,
+                                      forContent: contentFor(content))
   }
   
-  public func logClickToShow(screenName: String, forItem item: Item) {
-    self.metricsLogger.logClickToShow(screenName: screenName, forItem: item)
-  }
-  
-  public func logClickToSignUp(userID: String) {
+  @objc public func logClickToSignUp(userID: String) {
     self.metricsLogger.logClickToSignUp(userID: userID)
   }
-  
-  @objc(logClickToPurchaseItemID:)
-  public func logClickToPurchase(itemID: String) {
-    logClickToPurchase(item: Item(itemID: itemID))
-  }
-  
-  public func logClickToPurchase(item: Item) {
+    
+  @objc(logClickToPurchaseItem:)
+  public func logClickToPurchase(item: ReactNativeDictionary?) {
+    let item = Item(properties: item,
+                    contentIDKeys: contentIDKeys,
+                    insertionIDKeys: insertionIDKeys)
     self.metricsLogger.logClickToPurchase(item: item)
   }
   
-  public func logClick(actionName: String) {
+  @objc public func logClick(actionName: String) {
     self.metricsLogger.logClick(actionName: actionName)
   }
-
-  /// **React Native-only**
-  @objc public func logClick(actionName: String, itemID: String) {
-    logClick(actionName: actionName, item: Item(itemID: itemID))
-  }
   
-  public func logClick(actionName: String, item: Item) {
-    self.metricsLogger.logClick(actionName: actionName, item: item)
-  }
-  
-  /// Logs a click for the given action and properties. If `properties`
-  /// represents a food item, then also logs data about the item.
-  /// **React Native-only**
-  @objc public func logClick(actionName: String, properties: [String: Any]?) {
-    let item = Item(properties: properties,
-                    itemIDKeys: itemIDKeys,
-                    insertionIDKeys: insertionIDKeys)
-    self.metricsLogger.logClick(actionName: actionName, item: item)
+  @objc public func logClick(actionName: String, content: ReactNativeDictionary?) {
+    self.metricsLogger.logClick(actionName: actionName, content: contentFor(content))
   }
   
   // MARK: - Views
-  public func logView(viewController: ViewControllerType) {
-    self.metricsLogger.logView(viewController: viewController)
-  }
-  
-  public func logView(viewController: ViewControllerType,
-                      useCase: UseCase) {
-    self.metricsLogger.logView(viewController: viewController,
-                               useCase: useCase)
-  }
-  
-  public func logView(screenName: String) {
+  @objc public func logView(screenName: String) {
     self.metricsLogger.logView(screenName: screenName)
   }
   
-  public func logView(screenName: String, useCase: UseCase) {
+  @objc public func logView(screenName: String, useCase: UseCase) {
     self.metricsLogger.logView(screenName: screenName, useCase: useCase)
   }
+  
+  // MARK: - ImpressionLogger
+  @objc public func collectionViewDidLoad(items: [ReactNativeDictionary],
+                                          collectionViewName: String) {
+    print("***** \(collectionViewName): \(items)")
+  }
+
+  @objc public func collectionViewDidChange(visibleRows: [Int],
+                                            collectionViewName: String) {
+    print("***** \(collectionViewName): \(visibleRows)")
+  }
+  
+  // MARK: - ScrollTracker
+  
 }
