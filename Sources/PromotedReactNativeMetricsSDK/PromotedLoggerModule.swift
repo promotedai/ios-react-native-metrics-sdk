@@ -63,6 +63,14 @@ public class PromotedLoggerModule: NSObject {
                    contentIDKeys: contentIDKeys,
                    insertionIDKeys: insertionIDKeys)
   }
+  
+  private func sectionedContentFor(_ content: [[ReactNativeDictionary]])
+      -> [[Content]] {
+    let convertedContent = content.map { section -> [Content] in
+      section.map { dict -> Content in contentFor(dict) }
+    }
+    return convertedContent
+  }
 }
 
 public extension PromotedLoggerModule {
@@ -135,9 +143,7 @@ public extension PromotedLoggerModule {
   @objc(collectionViewDidLoad:collectionViewName:)
   func collectionViewDidLoad(sectionedContent: [[ReactNativeDictionary]],
                              collectionViewName: String) {
-    let convertedContent = sectionedContent.map { section -> [Content] in
-      section.map { dict -> Content in contentFor(dict) }
-    }
+    let convertedContent = sectionedContentFor(sectionedContent)
     let logger = service.impressionLogger(sectionedContent: convertedContent)
     nameToImpressionLogger[collectionViewName] = logger
   }
@@ -157,22 +163,30 @@ public extension PromotedLoggerModule {
 
 // MARK: - ScrollTracker
 public extension PromotedLoggerModule {
-  @objc(scrollViewDidLoad:sectionedContent:scrollViewName:)
-  func scrollViewDidLoad(frame: [NSNumber],
-                         sectionedContent: [[ReactNativeDictionary]],
+  @objc(scrollViewDidLoad:scrollViewName:)
+  func scrollViewDidLoad(sectionedContent: [[ReactNativeDictionary]],
                          scrollViewName: String) {
-    if let existingTracker = nameToScrollTracker[scrollViewName] {
-      let existingContent = existingTracker.sectionedContent
-      if isReactNativeContent(sectionedContent, equalTo: existingContent) {
-        print("***** re-using tracker named \(scrollViewName)")
-        return
-      }
+    var tracker: ScrollTracker? = nameToScrollTracker[scrollViewName]
+    if tracker == nil {
+      tracker = service.scrollTracker()
+      nameToScrollTracker[scrollViewName] = tracker
+      print("***** created tracker named \(scrollViewName)")
     }
-    let frameRect = CGRect(array: frame)
-    let convertedContent = sectionedContentFor(sectionedContent)
-    let tracker = service.scrollTracker(sectionedContent: convertedContent)
-    nameToScrollTracker[scrollViewName] = tracker
-    print("***** created tracker named \(scrollViewName) frame \(frameRect) for \(convertedContent)")
+    let existingContent = tracker!.sectionedContent
+    if !isReactNativeContent(sectionedContent, equalTo: existingContent) {
+      let convertedContent = sectionedContentFor(sectionedContent)
+      tracker!.sectionedContent = convertedContent
+      print("***** setting tracker named \(scrollViewName) content \(convertedContent)")
+    } else {
+      print("***** re-using content for tracker named \(scrollViewName)")
+    }
+  }
+  
+  @objc(scrollViewDidLayout:scrollViewName:)
+  func scrollViewDidLayout(frame: [NSNumber], scrollViewName: String) {
+    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
+    print("***** tracker named \(scrollViewName) origin \(frame)")
+    tracker.offset = CGPoint(x: frame[0].doubleValue, y: frame[1].doubleValue)
   }
   
   private func isReactNativeContent(_ reactNativeContent: [[ReactNativeDictionary]],
@@ -192,8 +206,8 @@ public extension PromotedLoggerModule {
     return true
   }
   
-  @objc(scrollViewDidUpdateViewport:scrollViewName:)
-  func scrollViewDidUpdate(viewport: [NSNumber], scrollViewName: String) {
+  @objc(scrollViewDidScrollTo:scrollViewName:)
+  func scrollViewDidScroll(toViewport viewport: [NSNumber], scrollViewName: String) {
     guard let tracker = nameToScrollTracker[scrollViewName] else { return }
     let viewportRect = CGRect(array: viewport)
     tracker.viewport = viewportRect
@@ -208,7 +222,7 @@ public extension PromotedLoggerModule {
     let frameRect = CGRect(array: frame)
     let content = contentFor(contentDict)
     tracker.setFrame(frameRect, forContent: content)
-    print("***** tracker named \(scrollViewName) item \(content.name) frame \(frameRect)")
+    print("***** tracker named \(scrollViewName) item \(content.name!) frame \(frameRect)")
   }
   
   @objc(scrollViewDidUnmount:)
@@ -219,6 +233,7 @@ public extension PromotedLoggerModule {
 
 extension CGRect {
   init(array: [NSNumber]) {
+    assert(array.count == 4)
     self.init(x: array[0].doubleValue, y: array[1].doubleValue,
               width: array[2].doubleValue, height: array[3].doubleValue)
   }
