@@ -20,7 +20,14 @@ public class PromotedLoggerModule: NSObject {
   /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
   private let insertionIDKeys: [String]
   
-  private let service: MetricsLoggerService
+  /// Local reference to `MetricsLoggerService`, if any.
+  private let memberService: MetricsLoggerService?
+ 
+  /// Uses local reference if present, shared service otherwise.
+  private var service: MetricsLoggerService {
+    if let s = memberService { return s }
+    return MetricsLoggerService.sharedService
+  }
 
   private var metricsLogger: MetricsLogger {
     return service.metricsLogger
@@ -29,10 +36,18 @@ public class PromotedLoggerModule: NSObject {
   private var nameToImpressionLogger: [String: ImpressionLogger]
   private var nameToScrollTracker: [String: ScrollTracker]
   
-  public init(metricsLoggerService: MetricsLoggerService,
-              contentIDKeys: [String],
-              insertionIDKeys: [String]) {
-    self.service = metricsLoggerService
+  @objc public override init() {
+    self.memberService = nil
+    self.contentIDKeys = ["item_id", "itemId"]
+    self.insertionIDKeys = ["insertion_id", "insertionId"]
+    self.nameToImpressionLogger = [:]
+    self.nameToScrollTracker = [:]
+  }
+  
+  @objc public init(metricsLoggerService: MetricsLoggerService,
+                    contentIDKeys: [String],
+                    insertionIDKeys: [String]) {
+    self.memberService = metricsLoggerService
     self.contentIDKeys = contentIDKeys
     self.insertionIDKeys = insertionIDKeys
     self.nameToImpressionLogger = [:]
