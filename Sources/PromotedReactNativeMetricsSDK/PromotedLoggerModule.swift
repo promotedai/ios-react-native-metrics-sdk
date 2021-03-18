@@ -20,18 +20,27 @@ public class PromotedLoggerModule: NSObject {
   /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
   private let insertionIDKeys: [String]
   
-  private let service: MetricsLoggerService
+  private let service: MetricsLoggerService?
 
   private var metricsLogger: MetricsLogger {
-    return service.metricsLogger
+    return service?.metricsLogger ??
+        MetricsLoggerService.sharedService.metricsLogger
   }
   
   private var nameToImpressionLogger: [String: ImpressionLogger]
   private var nameToScrollTracker: [String: ScrollTracker]
   
-  public init(metricsLoggerService: MetricsLoggerService,
-              contentIDKeys: [String],
-              insertionIDKeys: [String]) {
+  @objc public override init() {
+    self.service = nil
+    self.contentIDKeys = ["item_id", "itemId"]
+    self.insertionIDKeys = ["insertion_id", "insertionId"]
+    self.nameToImpressionLogger = [:]
+    self.nameToScrollTracker = [:]
+  }
+  
+  @objc public init(metricsLoggerService: MetricsLoggerService,
+                    contentIDKeys: [String],
+                    insertionIDKeys: [String]) {
     self.service = metricsLoggerService
     self.contentIDKeys = contentIDKeys
     self.insertionIDKeys = insertionIDKeys
