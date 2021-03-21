@@ -28,7 +28,14 @@ public class PromotedLoggerModule: NSObject {
   /// `Content(properties:contentIDKeys:insertionIDKeys:)`.
   private let insertionIDKeys: [String]
   
-  private let service: MetricsLoggerService
+  /// Local reference to `MetricsLoggerService`, if any.
+  private let memberService: MetricsLoggerService?
+ 
+  /// Uses local reference if present, shared service otherwise.
+  private var service: MetricsLoggerService {
+    if let s = memberService { return s }
+    return MetricsLoggerService.sharedService
+  }
 
   private var metricsLogger: MetricsLogger {
     return service.metricsLogger
@@ -37,11 +44,25 @@ public class PromotedLoggerModule: NSObject {
   private var nameToImpressionLogger: [String: ImpressionLogger]
   private var nameToScrollTracker: [String: ScrollTracker]
   
-  public init(metricsLoggerService: MetricsLoggerService,
-              nameKeys: [String]? = defaultNameKeys,
-              contentIDKeys: [String]? = defaultContentIDKeys,
-              insertionIDKeys: [String]? = defaultInsertionIDKeys) {
-    self.service = metricsLoggerService
+  public override convenience init() {
+    self.init(optionalMetricsLoggerService: nil)
+  }
+  
+  public convenience init(metricsLoggerService: MetricsLoggerService,
+                          nameKeys: [String]? = defaultNameKeys,
+                          contentIDKeys: [String]? = defaultContentIDKeys,
+                          insertionIDKeys: [String]? = defaultInsertionIDKeys) {
+    self.init(optionalMetricsLoggerService: metricsLoggerService,
+              nameKeys: nameKeys,
+              contentIDKeys: contentIDKeys,
+              insertionIDKeys: insertionIDKeys)
+  }
+
+  private init(optionalMetricsLoggerService: MetricsLoggerService?,
+               nameKeys: [String]? = defaultNameKeys,
+               contentIDKeys: [String]? = defaultContentIDKeys,
+               insertionIDKeys: [String]? = defaultInsertionIDKeys) {
+    self.memberService = optionalMetricsLoggerService
     self.nameKeys = nameKeys!
     self.contentIDKeys = contentIDKeys!
     self.insertionIDKeys = insertionIDKeys!
@@ -77,38 +98,38 @@ public extension PromotedLoggerModule {
   // MARK: - Starting new sessions
   @objc(startSessionAndLogUserWithID:)
   func startSessionAndLogUser(userID: String) {
-    self.metricsLogger.startSessionAndLogUser(userID: userID)
+    metricsLogger.startSessionAndLogUser(userID: userID)
   }
   
   @objc func startSessionAndLogSignedOutUser() {
-    self.metricsLogger.startSessionAndLogSignedOutUser()
+    metricsLogger.startSessionAndLogSignedOutUser()
   }
   
   // MARK: - Impressions
   @objc func logImpression(content: ReactNativeDictionary?) {
-    self.metricsLogger.logImpression(content: contentFor(content))
+    metricsLogger.logImpression(content: contentFor(content))
   }
   
   // MARK: - Clicks
   @objc(logClickToLikeContent:didLike:)
   func logClickToLike(content: ReactNativeDictionary?, didLike: Bool) {
-    self.metricsLogger.logClickToLike(content: contentFor(content), didLike: didLike)
+    metricsLogger.logClickToLike(content: contentFor(content), didLike: didLike)
   }
   
   @objc(logClickToShowScreenName:)
   func logClickToShow(screenName: String) {
-    self.metricsLogger.logClickToShow(screenName: screenName)
+    metricsLogger.logClickToShow(screenName: screenName)
   }
   
   @objc(logClickToShowScreenName:forContent:)
   func logClickToShow(screenName: String,
                              forContent content: ReactNativeDictionary?) {
-    self.metricsLogger.logClickToShow(screenName: screenName,
-                                      forContent: contentFor(content))
+    metricsLogger.logClickToShow(screenName: screenName,
+                                 forContent: contentFor(content))
   }
   
   @objc func logClickToSignUp(userID: String) {
-    self.metricsLogger.logClickToSignUp(userID: userID)
+    metricsLogger.logClickToSignUp(userID: userID)
   }
     
   @objc(logClickToPurchaseItem:)
@@ -117,24 +138,24 @@ public extension PromotedLoggerModule {
                     nameKeys: nameKeys,
                     contentIDKeys: contentIDKeys,
                     insertionIDKeys: insertionIDKeys)
-    self.metricsLogger.logClickToPurchase(item: item)
+    metricsLogger.logClickToPurchase(item: item)
   }
   
   @objc func logClick(actionName: String) {
-    self.metricsLogger.logClick(actionName: actionName)
+    metricsLogger.logClick(actionName: actionName)
   }
   
   @objc func logClick(actionName: String, content: ReactNativeDictionary?) {
-    self.metricsLogger.logClick(actionName: actionName, content: contentFor(content))
+    metricsLogger.logClick(actionName: actionName, content: contentFor(content))
   }
   
   // MARK: - Views
   @objc func logView(screenName: String) {
-    self.metricsLogger.logView(screenName: screenName)
+    metricsLogger.logView(screenName: screenName)
   }
   
   @objc func logView(screenName: String, useCase: UseCase) {
-    self.metricsLogger.logView(screenName: screenName, useCase: useCase)
+    metricsLogger.logView(screenName: screenName, useCase: useCase)
   }
 }
 
@@ -177,16 +198,7 @@ public extension PromotedLoggerModule {
       let convertedContent = sectionedContentFor(sectionedContent)
       tracker!.sectionedContent = convertedContent
       print("***** setting tracker named \(scrollViewName) content \(convertedContent)")
-    } else {
-      print("***** re-using content for tracker named \(scrollViewName)")
     }
-  }
-  
-  @objc(scrollViewDidLayout:scrollViewName:)
-  func scrollViewDidLayout(frame: [NSNumber], scrollViewName: String) {
-    guard let tracker = nameToScrollTracker[scrollViewName] else { return }
-    print("***** tracker named \(scrollViewName) origin \(frame)")
-    tracker.offset = CGPoint(x: frame[0].doubleValue, y: frame[1].doubleValue)
   }
   
   private func isReactNativeContent(_ reactNativeContent: [[ReactNativeDictionary]],
